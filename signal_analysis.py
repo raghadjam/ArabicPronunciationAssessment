@@ -1,185 +1,184 @@
 """
 Arabic Pronunciation - Signal Analysis
+
+Generates waveform, spectrogram, short-time energy, zero-crossing rate,
+and pitch contour plots for every cleaned recording.
 """
 
 import os
-import numpy as np
+
 import librosa
 import librosa.display
 import matplotlib.pyplot as plt
-import soundfile as sf
-
-# Arabic fix libraries
-import arabic_reshaper
-from bidi.algorithm import get_display
+import numpy as np
 
 
 CLEAN_DATA_FOLDER = "clean_data"
-OUTPUT_FOLDER     = "plots/analysis"
-TARGET_SR         = 16000
-FRAME_LENGTH      = 512
-HOP_LENGTH        = 256
+OUTPUT_FOLDER = "plots/analysis"
+TARGET_SR = 16000
+FRAME_LENGTH = 512
+HOP_LENGTH = 256
 
 
 WORDS = [
-    ("daw'",    "ضوء",  "(ض)"),
-    ("arabi",   "عربي", "(ع)"),
-    ("khalid",  "خالد", "(خ)"),
+    ("arabi", "arabi", "pharyngeal /ayn/"),
+    ("hadeka", "hadeka", "pharyngeal /haa/"),
+    ("qalam", "qalam", "uvular /qaf/"),
+    ("daw'", "daw'", "emphatic /dad/"),
+    ("ghurfa", "ghurfa", "uvular /ghayn/"),
+    ("khalid", "khalid", "uvular /khaa/"),
+    ("sadeeq", "sadeeq", "emphatic /sad/"),
+    ("tareeq", "tareeq", "emphatic /taa/"),
+    ("zarf", "zarf", "emphatic /zaa/"),
+    ("thalatha", "thalatha", "regular /thaa/"),
 ]
 
-SPEAKER = 1
+SPEAKERS = range(1, 6)
 
 
-# ---------- Arabic fix ----------
-def fix_arabic(text):
-    return get_display(arabic_reshaper.reshape(text))
-
-
-# ---------- Audio loading ----------
-def load_audio(word_prefix):
-    filename = f"{word_prefix}_{SPEAKER}.wav"
+def load_audio(word_prefix, speaker):
+    filename = f"{word_prefix}_{speaker}.wav"
     path = os.path.join(CLEAN_DATA_FOLDER, filename)
 
     if not os.path.exists(path):
         raise FileNotFoundError(f"File not found: {path}")
 
     y, sr = librosa.load(path, sr=TARGET_SR, mono=True)
-    return y, sr, filename
+    return y, sr
 
 
-# ---------- Plots ----------
 def plot_waveform(y, sr, title, save_path):
     fig, ax = plt.subplots(figsize=(9, 3))
     librosa.display.waveshow(y, sr=sr, ax=ax, color="#4c6ef5")
-    ax.set_title(f"Waveform — {title}", fontsize=12)
+    ax.set_title(f"Waveform - {title}", fontsize=12)
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("Amplitude")
     plt.tight_layout()
     plt.savefig(save_path, dpi=130)
-    plt.close()
+    plt.close(fig)
 
 
 def plot_spectrogram(y, sr, title, save_path):
-    D = librosa.amplitude_to_db(
-        np.abs(librosa.stft(y, n_fft=FRAME_LENGTH, hop_length=HOP_LENGTH)),
-        ref=np.max
-    )
+    spectrum = librosa.stft(y, n_fft=FRAME_LENGTH, hop_length=HOP_LENGTH)
+    db_spectrum = librosa.amplitude_to_db(np.abs(spectrum), ref=np.max)
 
     fig, ax = plt.subplots(figsize=(9, 3))
     img = librosa.display.specshow(
-        D,
+        db_spectrum,
         sr=sr,
         hop_length=HOP_LENGTH,
         x_axis="time",
         y_axis="hz",
         ax=ax,
-        cmap="magma"
+        cmap="magma",
     )
 
     fig.colorbar(img, ax=ax, format="%+2.0f dB")
-    ax.set_title(f"Spectrogram — {title}", fontsize=12)
+    ax.set_title(f"Spectrogram - {title}", fontsize=12)
     plt.tight_layout()
     plt.savefig(save_path, dpi=130)
-    plt.close()
+    plt.close(fig)
 
 
 def plot_short_time_energy(y, sr, title, save_path):
-    frames = librosa.util.frame(y, frame_length=FRAME_LENGTH, hop_length=HOP_LENGTH)
-    energy = np.sum(frames ** 2, axis=0)
-    times = librosa.frames_to_time(np.arange(len(energy)), sr=sr, hop_length=HOP_LENGTH)
+    frames = librosa.util.frame(
+        y, frame_length=FRAME_LENGTH, hop_length=HOP_LENGTH
+    )
+    energy = np.sum(frames**2, axis=0)
+    times = librosa.frames_to_time(
+        np.arange(len(energy)), sr=sr, hop_length=HOP_LENGTH
+    )
 
     fig, ax = plt.subplots(figsize=(9, 3))
     ax.plot(times, energy, color="#f03e3e", linewidth=1.2)
     ax.fill_between(times, energy, alpha=0.2, color="#f03e3e")
-
-    ax.set_title(f"Short-Time Energy — {title}", fontsize=12)
+    ax.set_title(f"Short-Time Energy - {title}", fontsize=12)
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("Energy")
-
     plt.tight_layout()
     plt.savefig(save_path, dpi=130)
-    plt.close()
+    plt.close(fig)
 
 
 def plot_zcr(y, sr, title, save_path):
     zcr = librosa.feature.zero_crossing_rate(
-        y,
-        frame_length=FRAME_LENGTH,
-        hop_length=HOP_LENGTH
+        y, frame_length=FRAME_LENGTH, hop_length=HOP_LENGTH
     )[0]
-
     times = librosa.frames_to_time(np.arange(len(zcr)), sr=sr, hop_length=HOP_LENGTH)
 
     fig, ax = plt.subplots(figsize=(9, 3))
     ax.plot(times, zcr, color="#2f9e44", linewidth=1.2)
     ax.fill_between(times, zcr, alpha=0.2, color="#2f9e44")
-
-    ax.set_title(f"Zero-Crossing Rate — {title}", fontsize=12)
+    ax.set_title(f"Zero-Crossing Rate - {title}", fontsize=12)
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("ZCR")
-
     plt.tight_layout()
     plt.savefig(save_path, dpi=130)
-    plt.close()
+    plt.close(fig)
 
 
 def plot_pitch(y, sr, title, save_path):
-    f0, voiced_flag, _ = librosa.pyin(
+    f0, _, _ = librosa.pyin(
         y,
         fmin=librosa.note_to_hz("C2"),
         fmax=librosa.note_to_hz("C7"),
         sr=sr,
-        hop_length=HOP_LENGTH
+        hop_length=HOP_LENGTH,
     )
-
     times = librosa.times_like(f0, sr=sr, hop_length=HOP_LENGTH)
 
     fig, ax = plt.subplots(figsize=(9, 3))
     ax.plot(times, f0, color="#e67700", linewidth=1.5)
-    ax.set_title(f"Pitch Contour — {title}", fontsize=12)
+    ax.set_title(f"Pitch Contour - {title}", fontsize=12)
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("Frequency (Hz)")
-
     plt.tight_layout()
     plt.savefig(save_path, dpi=130)
-    plt.close()
+    plt.close(fig)
 
 
-# ---------- Main processing ----------
-def process_word(word_prefix, arabic, category):
-    print(f"\nProcessing: {arabic} ({category})")
+def process_recording(word_prefix, label, category, speaker):
+    print(f"Processing: {word_prefix}_{speaker}.wav")
+    y, sr = load_audio(word_prefix, speaker)
 
-    y, sr, filename = load_audio(word_prefix)
+    title = f"{label} speaker {speaker} - {category}"
+    base = os.path.join(OUTPUT_FOLDER, f"{word_prefix}_{speaker}")
+    output_paths = [
+        f"{base}_waveform.png",
+        f"{base}_spectrogram.png",
+        f"{base}_energy.png",
+        f"{base}_zcr.png",
+        f"{base}_pitch.png",
+    ]
 
-    label = f"{fix_arabic(arabic)} — {category}"
-    base = os.path.join(OUTPUT_FOLDER, word_prefix)
+    if all(os.path.exists(path) for path in output_paths):
+        print("Already complete, skipping.")
+        return
 
-    plot_waveform(y, sr, label, f"{base}_1_waveform.png")
-    print("Waveform")
-
-    plot_spectrogram(y, sr, label, f"{base}_2_spectrogram.png")
-    print("Spectrogram")
-
-    plot_short_time_energy(y, sr, label, f"{base}_3_energy.png")
-    print("Energy")
-
-    plot_zcr(y, sr, label, f"{base}_4_zcr.png")
-    print("ZCR")
-
-    plot_pitch(y, sr, label, f"{base}_5_pitch.png")
-    print("Pitch")
+    plot_waveform(y, sr, title, output_paths[0])
+    plot_spectrogram(y, sr, title, output_paths[1])
+    plot_short_time_energy(y, sr, title, output_paths[2])
+    plot_zcr(y, sr, title, output_paths[3])
+    plot_pitch(y, sr, title, output_paths[4])
 
 
 def main():
     os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
-    for word_prefix, arabic, category in WORDS:
-        try:
-            process_word(word_prefix, arabic, category)
-        except FileNotFoundError as e:
-            print(f"SKIPPED — {e}")
+    total = 0
+    skipped = 0
+    for word_prefix, label, category in WORDS:
+        for speaker in SPEAKERS:
+            try:
+                process_recording(word_prefix, label, category, speaker)
+                total += 1
+            except FileNotFoundError as exc:
+                skipped += 1
+                print(f"SKIPPED - {exc}")
 
     print("\nDone.")
+    print(f"Processed recordings: {total}")
+    print(f"Skipped recordings: {skipped}")
     print(f"Saved to: {OUTPUT_FOLDER}")
 
 
