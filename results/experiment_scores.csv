@@ -1,0 +1,4 @@
+Scenario,Comparison,MFCC,Pitch,Duration,Formants,Total
+Same speaker vs same speaker,arabi_1.wav vs arabi_1.wav,100.0,100.0,100.0,100.0,100.0
+Different speakers,arabi_1.wav vs arabi_2.wav,96.17,89.67,77.27,89.28,90.31
+Correct vs incorrect pronunciation,arabi_reference vs arabi_wrong.wav,94.44,96.25,66.67,0.0,55.55
