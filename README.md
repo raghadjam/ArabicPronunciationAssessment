@@ -1,8 +1,5 @@
 # Arabic Pronunciation Assessment
-Motivation
-Quick Start
-Usage
-Contributing
+
 
 A Python project for assessing Arabic word pronunciation from `.wav` audio files.
 
